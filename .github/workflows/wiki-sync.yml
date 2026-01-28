@@ -1,0 +1,45 @@
+name: Sync Wiki
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'wiki/**'
+  workflow_dispatch:
+
+jobs:
+  sync-wiki:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Clone Wiki Repository
+        run: |
+          git clone https://github.com/${{ github.repository }}.wiki.git wiki-repo
+      
+      - name: Copy Wiki Content
+        run: |
+          rsync -av --delete --exclude='.git' wiki/ wiki-repo/
+      
+      - name: Commit and Push to Wiki
+        run: |
+          cd wiki-repo
+          git add .
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update wiki from main repository - ${{ github.sha }}"
+            git push origin master
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
